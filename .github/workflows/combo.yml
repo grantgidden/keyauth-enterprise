@@ -1,0 +1,43 @@
+name: Combine Repositories
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  combine_repos:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout private repo
+      uses: actions/checkout@v2
+      with:
+        repository: KeyAuth/keyauth-enterprise
+        
+    - name: Checkout public repo
+      uses: actions/checkout@v2
+      with:
+        repository: KeyAuth/KeyAuth-Source-Code
+        ref: main
+        path: public-repo
+
+    - name: Combine repositories
+      run: |
+        git config --global user.email "agentreachout@keyauth.cc"
+        git config --global user.name "KeyAuth LLC"
+        git config advice.addIgnoredFile false
+        git checkout -b combo
+        
+        rsync -a --exclude '.git' public-repo/ .
+        
+        git add .
+        git status --porcelain | grep -e '\.yml$' | cut -c 4- | xargs -r git reset
+        git commit -m "Combine main branch of keyauth-enterprise with KeyAuth-Source-Code"
+        git fetch origin main
+        git checkout main
+        git merge origin/main
+        # Resolve conflicts if any
+        git add .
+        git commit -m "Merge remote changes"
+        git checkout combo
+        git push -f origin combo
